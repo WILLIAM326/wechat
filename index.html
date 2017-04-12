@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=640, user-scalable=no, target-densitydpi=device-dpi">
+    <title>微信朋友圈</title>
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <!-- build:css styles/main.css -->
+    <link rel="stylesheet" href="styles/reset.css">
+    <link rel="stylesheet" href="styles/main.css">
+    <!-- endbuild -->
+    <style>
+        .activecolor {
+            color: #ee707d;
+        }
+    </style>
+</head>
+<body>
+<!--[if lt IE 10]>
+<p class="browserupgrade">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade
+    your browser</a> to improve your experience.</p>
+<![endif]-->
+<div id="webchat" v-cloak>
+    <div class="overplay" v-show="maskShow"></div>
+    <div class="user-bg"></div>
+    <!--评论输入框-->
+    <div class="inset" v-show="commentShow">
+        <span class="icon-input"></span>
+        <input type="text" v-model="inputComment" placeholder="评论">
+        <button class="input-button" v-on:click.stop="inputClick($event)">确认</button>
+    </div>
+
+
+    <!--回复评论-->
+    <div class="replybox" v-show="replyShow">
+        <span class="icon-input"></span>
+        <input type="text" v-model="replytext" placeholder="回复 {{replyUser}}">
+        <button class="input-button" v-on:click.stop="replyClick($event)">回复</button>
+    </div>
+
+    <div class="container">
+        <!--头像信息-->
+        <div class="user-self">
+            <div class="username left">
+                <h1>{{userinfo.username}}</h1>
+            </div>
+            <div class="user-icon">
+                <img v-bind:src="userinfo.url" alt="">
+            </div>
+        </div>
+        <!--end-->
+
+        <div class="user-william">
+            <div class="border" v-for="william in AllFeeds" track-by="$index">
+                <!--头像-->
+                <div class="user-pic">
+                    <img v-bind:src="william.url" alt="">
+                </div>
+                <div class="user-content">
+                    <h2 class="spacing">{{william.name}}</h2>
+                    <p class="spacing">{{william.content}}</p>
+                    <img class="spacing-img" v-bind:src="william.picUrl" alt="">
+                    <span class="spacing time">{{william.time}}</span>
+
+                    <!--评论点赞显示与否-->
+                    <div class="commit">
+                        <a v-on:click.stop="likeClick($event,william)" class="btn btn-left" href="javascript:;">
+                            <span class="icon-heart-empty" :class="{'activecolor':william.showComt}"></span>{{william.like}}
+                        </a>
+                        <a v-on:click.stop="comtClick($event,william)" href="javascript:;" class="btn btn-comment">
+                            <span class="icon-comment-alt"></span>评论
+                        </a>
+                    </div>
+                    <button class="btn-default" v-on:click.stop="showCommentClick($event,william)"></button>
+                    <!--点击评论end-->
+                </div>
+
+                <!--回复评论-->
+                <div class="repcomment">
+                    <div class="comments"
+                         v-show="william.userLike && william.userLike.length > 0 || william.comment && william.comment.length > 0">
+                        <div class="top">
+                            <span class="triangle"></span>
+                            <!--点赞显示头像信息-->
+                            <div class="like" v-show="william.userLike && william.userLike.length > 0">
+                                <p>
+                                    <span class="icon-heart-empty i-like"></span>
+                                    <span class="user" v-for="onelike in william.userLike"
+                                          track-by="$index">{{onelike}}<span class="dh-black">,</span></span>
+                                </p>
+                            </div>
+                            <!--end-->
+                            <!--评论区域-->
+                            <div class="comment">
+                                <div class="com-space" v-for="onecommet in william.comment" track-by="$index">
+                                    <div v-if="!(onecommet.reply)">
+                                        <a href="javascript:;" v-on:click.stop="replyComt($event,william,onecommet)" class="reply">
+                                            <span class="user">{{onecommet.name}}:</span>
+                                            {{onecommet.content}}
+                                        </a>
+                                    </div>
+                                    <div v-else>
+                                        <a href="javascript:;" v-on:click.stop="replyComt($event,william,onecommet)"
+                                           class="reply">
+                                            <span class="user">{{userinfo.username}}</span>回复 <span class="user">{{replyUser}}:
+                            <a href="javascript:;" class="reply">{{onecommet.content}}</a>
+                          </span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="scripts/vue.js"></script>
+<script src="scripts/libs/vue-resource.min.js"></script>
+<!-- endbuild -->
+<script>
+    var vm = new Vue({
+        el: '#webchat',
+        data: {
+            AllFeeds: [],//所有数据
+            userinfo: [],//头像数据
+            clickFeed: [],//获取评论单条内容
+            replyUser: '',
+            commentShow: false,
+            replyShow: false,//回复评论显示
+            maskShow:false,//遮罩层显示
+            inputComment: '',//输入的评论
+            replytext:''//回复评论的内容
+        },
+        ready: function () {
+            this.initData();
+        },
+        methods: {
+            //初始化数据
+            initData: function () {
+                var _vm = this;
+                _vm.$http.get("mock/data.json")
+                    .then(function (response) {
+                        var re = response.json();
+                        _vm.AllFeeds = re.data;
+                        _vm.AllFeeds.forEach(function (feed) {
+                            Vue.set(feed, 'showComt', false);
+                            Vue.set(feed, 'clickNum', 0);
+                        });
+                        console.log(JSON.stringify(_vm.AllFeeds));
+                    });
+                _vm.$http.get("mock/user-info.json")
+                    .then(function (response) {
+                        var re = response.json();
+                        _vm.userinfo = re.data;
+                    });
+            },
+            showCommentClick: function (event, feed) {
+                this.clickFeed = feed;
+                console.log(JSON.stringify(this.clickFeed))
+            },
+            likeClick: function (event, feed) {
+                var _vm = this;
+                if (_vm.userinfo && feed.clickNum == 0) {
+                    feed.clickNum++;
+                    feed.userLike.push(_vm.userinfo.username);
+                    feed.like = '赞';
+                    feed.showComt = true;
+                    console.log(JSON.stringify(event))
+                } else {
+                    alert('你已经点过赞了');
+                }
+            },
+            comtClick: function (event, feed) {
+                var _vm=this;
+                _vm.clickFeed = feed;
+                console.log(JSON.stringify(this.clickFeed))
+                _vm.commentShow = true;
+                _vm.maskShow =true;
+            },
+            inputClick: function (event) {
+                var _vm = this;
+                if (!_vm.inputComment) {
+                    console.log('评论不能为空');
+                    return;
+                } else {
+                    _vm.commentShow = false;
+                    _vm.maskShow =false;
+                    _vm.clickFeed.comment.push({"name": _vm.userinfo.username, "content": _vm.inputComment});
+                    console.log(_vm.inputComment)
+                }
+
+            },
+            replyComt: function (event, feed, onecommet) {
+                var _vm=this;
+                _vm.clickFeed = feed;
+                _vm.replyShow =true;
+                _vm.maskShow =true;
+                _vm.replyUser = onecommet.name;
+            },
+            replyClick: function (event) {
+                var _vm =this;
+                if(!_vm.replytext){
+                    console.log('评论不能为空');
+                    return;
+                }else{
+                    _vm.clickFeed.comment.push({
+                        "name": _vm.userinfo.username,
+                        "content": _vm.replytext,
+                        "reply": _vm.replyUser
+                    });
+                    _vm.replyShow =false;
+                    _vm.maskShow =false;
+                    _vm.replytext='';
+                }
+            }
+        }
+    });
+</script>
+<!-- endbuild -->
+</body>
+</html>
